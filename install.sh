@@ -10,7 +10,6 @@ sudo apt-get install -y openjdk-17-jre git wget curl
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker $USER
-newgrp docker # Áp dụng quyền group mới
 
 # Cài đặt Docker Compose
 sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
@@ -30,9 +29,10 @@ curl -sfL https://get.k3s.io | sh -
 sudo chmod 644 /etc/rancher/k3s/k3s.yaml # Cho phép truy cập kubeconfig
 
 # Cài đặt SonarQube
-mkdir sonarqube && cd sonarqube
+mkdir -p sonarqube && cd sonarqube
+# SỬA LẠI CÚ PHÁP YAML VÀ THỤT LỀ
 cat << EOF > docker-compose.yml
-version: "3"
+version: "3.8"
 services:
   sonarqube:
     image: sonarqube:lts-community
@@ -69,8 +69,13 @@ volumes:
   postgresql:
   postgresql_data:
 EOF
-docker-compose up -d
 
+# THÊM SUDO VÀO LỆNH DOCKER-COMPOSE
+sudo docker-compose up -d
+cd .. # Quay trở lại thư mục trước đó
+
+echo ""
 echo "---- CÀI ĐẶT HOÀN TẤT ----"
+echo ""
 echo "Mật khẩu Jenkins admin ban đầu:"
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword

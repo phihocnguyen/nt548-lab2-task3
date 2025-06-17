@@ -58,33 +58,10 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            parallel {
-                stage('Backend Analysis') {
-                    steps {
-                        withSonarQubeEnv('SonarQube') {
-                            sh '''
-                                mvn sonar:sonar \
-                                  -Dsonar.projectKey=todo-app-backend \
-                                  -Dsonar.sources=./auth-service/src,./profile-service/src,./task-service/src \
-                                  -Dsonar.tests=./auth-service/src/test,./profile-service/src/test,./task-service/src/test \
-                                  -Dsonar.java.binaries=./auth-service/target,./profile-service/target,./task-service/target \
-                                  -Dsonar.coverage.jacoco.xmlReportPaths=./auth-service/target/site/jacoco/jacoco.xml,./profile-service/target/site/jacoco/jacoco.xml,./task-service/target/site/jacoco/jacoco.xml
-                            '''
-                        }
-                    }
-                }
-                stage('Frontend Analysis') {
-                    steps {
-                        withSonarQubeEnv('SonarQube') {
-                            sh '''
-                                sonar-scanner \
-                                  -Dsonar.projectKey=todo-app-frontend \
-                                  -Dsonar.sources=./todo-fe/src \
-                                  -Dsonar.tests=./todo-fe/src/test \
-                                  -Dsonar.javascript.lcov.reportPaths=./todo-fe/coverage/lcov.info
-                            '''
-                        }
-                    }
+            steps {
+                def scannerHome = tool 'SonarScanner'
+                withSonarQubeEnv('SonarQube') {
+                    sh "${scannerHome}/bin/sonar-scanner"
                 }
             }
         }
