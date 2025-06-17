@@ -189,26 +189,50 @@ pipeline {
                             export KUBECONFIG=${KUBECFG_PATH}
 
                             echo 'Creating namespace if not exists...'
-                            # Add --insecure-skip-tls-verify=true here
+                            # Nếu bạn có namespace.yaml:
+                            # kubectl apply -f k8s/base/namespace.yaml --insecure-skip-tls-verify=true -n ${KUBERNETES_NAMESPACE}
+                            # Nếu không, dùng lệnh tạo namespace như cũ:
                             kubectl create namespace ${KUBERNETES_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - --insecure-skip-tls-verify=true
 
                             echo 'Deploying database infrastructure...'
-                            kubectl apply -f k8s/database-config.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
-                            kubectl apply -f k8s/database-secrets.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
-                            kubectl apply -f k8s/database-storage.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
-                            kubectl apply -f k8s/database-statefulsets.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/database/database-config.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/database/database-secrets.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/database/database-storage.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/database/database-statefulsets.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
 
-                            # ... continue to add --insecure-skip-tls-verify=true to all kubectl apply/set/rollout commands
-                            # kubectl set image, kubectl rollout status, and kubectl get pods generally don't need it for this specific error,
-                            # but adding it to all `kubectl` commands for consistency or if you are unsure is fine for testing.
+                            echo 'Waiting for database to be ready...'
+                            kubectl wait --for=condition=ready pod -l app=mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
 
                             echo 'Deploying Redis...'
-                            kubectl apply -f gateway/redis.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
-                            
-                            // ... (update all other kubectl apply commands similarly)
+                            kubectl apply -f k8s/gateway/redis.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+
+                            echo 'Deploying application deployments and services...'
+                            kubectl apply -f k8s/deployment/auth-service-deployment.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/deployment/user-service-deployment.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/deployment/task-service-deployment.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/frontend/frontend-deployment.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+
+                            echo 'Updating deployment images with current build number...'
+                            kubectl set image deployment/auth-service-deployment auth-service=${DOCKER_REGISTRY}/auth-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl set image deployment/user-service-deployment user-service=${DOCKER_REGISTRY}/profile-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl set image deployment/task-service-deployment task-service=${DOCKER_REGISTRY}/task-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl set image deployment/frontend-deployment frontend=${DOCKER_REGISTRY}/todo-fe:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+
+                            echo 'Deploying API Gateway (Tyk) components...'
+                            kubectl apply -f k8s/gateway/tyk-deployment.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/gateway/auth-service.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/gateway/user-service.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            kubectl apply -f k8s/gateway/task-service.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+
+                            echo 'Waiting for all deployments to be ready...'
+                            kubectl rollout status deployment/auth-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
+                            kubectl rollout status deployment/user-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
+                            kubectl rollout status deployment/task-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
+                            kubectl rollout status deployment/frontend-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
+                            kubectl rollout status deployment/tyk-gateway -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
 
                             echo 'Deployment completed successfully!'
-                            kubectl get pods -n ${KUBERNETES_NAMESPACE}
+                            kubectl get pods -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
                         '''
                     }
                 }

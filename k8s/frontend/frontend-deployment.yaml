@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: phihocnguyen123/todo-fe:latest
+        image: phihocnguyen123/todo-fe:${env.BUILD_NUMBER}
         ports:
         - containerPort: 80
         resources:
