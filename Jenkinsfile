@@ -232,7 +232,7 @@ pipeline {
                         echo 'Deployment completed successfully!'
                         sh 'kubectl get pods -n ${KUBERNETES_NAMESPACE}'
                         
-                        # Clean up temporary kubeconfig file
+                        // Clean up temporary kubeconfig file
                         sh 'rm kubeconfig-temp'
                     }
                 }
