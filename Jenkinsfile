@@ -139,7 +139,10 @@ pipeline {
                             # Install Trivy if not already installed
                             if ! command -v trivy &> /dev/null; then
                                 echo "Installing Trivy..."
-                                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin v0.48.0
+                                # Install to local directory to avoid permission issues
+                                mkdir -p $HOME/bin
+                                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b $HOME/bin v0.48.0
+                                export PATH=$HOME/bin:$PATH
                             fi
                             
                             # Run Trivy scans
