@@ -146,10 +146,10 @@ pipeline {
                             fi
                             
                             # Run Trivy scans
-                            trivy image ${DOCKER_REGISTRY}/auth-service:${BUILD_NUMBER} --format template --template @html -o trivy-auth-report.html
-                            trivy image ${DOCKER_REGISTRY}/profile-service:${BUILD_NUMBER} --format template --template @html -o trivy-profile-report.html
-                            trivy image ${DOCKER_REGISTRY}/task-service:${BUILD_NUMBER} --format template --template @html -o trivy-task-report.html
-                            trivy image ${DOCKER_REGISTRY}/todo-fe:${BUILD_NUMBER} --format template --template @html -o trivy-frontend-report.html
+                            trivy image ${DOCKER_REGISTRY}/auth-service:${BUILD_NUMBER} --format template --template "@contrib/html.tpl" -o trivy-auth-report.html
+                            trivy image ${DOCKER_REGISTRY}/profile-service:${BUILD_NUMBER} --format template --template "@contrib/html.tpl" -o trivy-profile-report.html
+                            trivy image ${DOCKER_REGISTRY}/task-service:${BUILD_NUMBER} --format template --template "@contrib/html.tpl" -o trivy-task-report.html
+                            trivy image ${DOCKER_REGISTRY}/todo-fe:${BUILD_NUMBER} --format template --template "@contrib/html.tpl" -o trivy-frontend-report.html
                         '''
                         archiveArtifacts artifacts: 'trivy-*-report.html'
                     }
