@@ -14,20 +14,6 @@ spec:
   hostPath:
     path: /mnt/data/auth-db
 ---
-# PersistentVolumeClaim for Auth Database
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: auth-db-pvc
-  namespace: todo-app
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-  storageClassName: standard
----
 # PersistentVolume for Profile Database
 apiVersion: v1
 kind: PersistentVolume
@@ -44,20 +30,6 @@ spec:
   hostPath:
     path: /mnt/data/profile-db
 ---
-# PersistentVolumeClaim for Profile Database
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: profile-db-pvc
-  namespace: todo-app
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-  storageClassName: standard
----
 # PersistentVolume for Task Database
 apiVersion: v1
 kind: PersistentVolume
@@ -72,18 +44,4 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: standard
   hostPath:
-    path: /mnt/data/task-db
----
-# PersistentVolumeClaim for Task Database
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: task-db-pvc
-  namespace: todo-app
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-  storageClassName: standard 
+    path: /mnt/data/task-db 

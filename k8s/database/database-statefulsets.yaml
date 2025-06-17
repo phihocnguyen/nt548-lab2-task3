@@ -8,11 +8,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mysql-db
+      app: auth-mysql-db
   template:
     metadata:
       labels:
-        app: mysql-db
+        app: auth-mysql-db
     spec:
       containers:
       - name: mysql
@@ -29,12 +29,12 @@ spec:
           valueFrom:
             secretKeyRef:
               name: db-secrets
-              key: auth-db-name # Giả định bạn có key này trong db-secrets
+              key: auth-db-name
         - name: MYSQL_USER
           valueFrom:
             secretKeyRef:
               name: db-secrets
-              key: auth-db-user # Giả định bạn có key này trong db-secrets
+              key: auth-db-user
         - name: MYSQL_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -45,6 +45,24 @@ spec:
           mountPath: /var/lib/mysql
         - name: auth-db-init
           mountPath: /docker-entrypoint-initdb.d
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          fsGroup: 999
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
         resources:
           requests:
             memory: "256Mi"
@@ -76,11 +94,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mysql-db
+      app: profile-mysql-db
   template:
     metadata:
       labels:
-        app: mysql-db
+        app: profile-mysql-db
     spec:
       containers:
       - name: mysql
@@ -97,12 +115,12 @@ spec:
           valueFrom:
             secretKeyRef:
               name: db-secrets
-              key: profile-db-name # Giả định bạn có key này trong db-secrets
+              key: profile-db-name
         - name: MYSQL_USER
           valueFrom:
             secretKeyRef:
               name: db-secrets
-              key: profile-db-user # Giả định bạn có key này trong db-secrets
+              key: profile-db-user
         - name: MYSQL_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -113,6 +131,24 @@ spec:
           mountPath: /var/lib/mysql
         - name: profile-db-init
           mountPath: /docker-entrypoint-initdb.d
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          fsGroup: 999
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
         resources:
           requests:
             memory: "256Mi"
@@ -144,11 +180,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mysql-db
+      app: task-mysql-db
   template:
     metadata:
       labels:
-        app: mysql-db
+        app: task-mysql-db
     spec:
       containers:
       - name: mysql
@@ -165,12 +201,12 @@ spec:
           valueFrom:
             secretKeyRef:
               name: db-secrets
-              key: task-db-name # Giả định bạn có key này trong db-secrets
+              key: task-db-name
         - name: MYSQL_USER
           valueFrom:
             secretKeyRef:
               name: db-secrets
-              key: task-db-user # Giả định bạn có key này trong db-secrets
+              key: task-db-user
         - name: MYSQL_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -181,6 +217,24 @@ spec:
           mountPath: /var/lib/mysql
         - name: task-db-init
           mountPath: /docker-entrypoint-initdb.d
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          fsGroup: 999
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
         resources:
           requests:
             memory: "256Mi"
@@ -211,7 +265,7 @@ spec:
   - port: 3306
     targetPort: 3306
   selector:
-    app: mysql-db
+    app: auth-mysql-db
 ---
 apiVersion: v1
 kind: Service
@@ -223,7 +277,7 @@ spec:
   - port: 3306
     targetPort: 3306
   selector:
-    app: mysql-db
+    app: profile-mysql-db
 ---
 apiVersion: v1
 kind: Service
@@ -235,4 +289,4 @@ spec:
   - port: 3306
     targetPort: 3306
   selector:
-    app: mysql-db
+    app: task-mysql-db

@@ -212,8 +212,10 @@ pipeline {
                             kubectl apply -f k8s/database/database-statefulsets.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
 
                             echo 'Waiting for database to be ready...'
-                            # Sau khi áp dụng thay đổi label, lệnh này sẽ tìm thấy các Pod
-                            kubectl wait --for=condition=ready pod -l app=mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
+                            # Wait for each database pod individually with their specific labels
+                            kubectl wait --for=condition=ready pod -l app=auth-mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
+                            kubectl wait --for=condition=ready pod -l app=profile-mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
+                            kubectl wait --for=condition=ready pod -l app=task-mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
 
                             echo 'Deploying Redis...'
                             kubectl apply -f k8s/gateway/redis.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
