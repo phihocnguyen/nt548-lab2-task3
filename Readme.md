@@ -1,361 +1,420 @@
-# Microservices CI/CD Pipeline Deployment Guide
+# ỨNG DỤNG TODO - MICROSERVICES CI/CD PIPELINE
 
-## Table of Contents
-1. [Prerequisites](#prerequisites)
-2. [Infrastructure Setup](#infrastructure-setup)
-3. [Jenkins Setup](#jenkins-setup)
-4. [SonarQube Setup](#sonarqube-setup)
-5. [Security Tools Setup](#security-tools-setup)
-6. [Pipeline Configuration](#pipeline-configuration)
-7. [Deployment Process](#deployment-process)
-8. [Monitoring and Maintenance](#monitoring-and-maintenance)
+Ứng dụng Todo hoàn chỉnh dựa trên microservices với pipeline CI/CD tự động sử dụng Jenkins, Kubernetes và các thực hành DevOps hiện đại.
 
-## Prerequisites
+## TỔNG QUAN KIẾN TRÚC
 
-### Hardware Requirements
-- EC2 Instance (t3.medium or better)
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   FRONTEND      │    │   AUTH SERVICE  │    │  PROFILE SERVICE│
+│   (REACT/TS)    │    │   (GO/GIN)      │    │   (GO/GIN)      │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │  NGINX GATEWAY  │
+                    │   (API ROUTER)  │
+                    └─────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │  TASK SERVICE   │
+                    │   (GO/GIN)      │
+                    └─────────────────┘
+                                 │
+         ┌───────────────────────┼───────────────────────┐
+         │                       │                       │
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   AUTH DB       │    │  PROFILE DB     │    │   TASK DB       │
+│   (MYSQL)       │    │   (MYSQL)       │    │   (MYSQL)       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+## MỤC LỤC
+
+1. [YÊU CẦU HỆ THỐNG](#yêu-cầu-hệ-thống)
+2. [KHỞI ĐỘNG NHANH](#khởi-động-nhanh)
+3. [THIẾT LẬP HẠ TẦNG](#thiết-lập-hạ-tầng)
+4. [TRIỂN KHAI ỨNG DỤNG](#triển-khai-ứng-dụng)
+5. [PIPELINE CI/CD](#pipeline-cicd)
+6. [GIÁM SÁT VÀ XỬ LÝ SỰ CỐ](#giám-sát-và-xử-lý-sự-cố)
+7. [TÀI LIỆU API](#tài-liệu-api)
+8. [HƯỚNG DẪN PHÁT TRIỂN](#hướng-dẫn-phát-triển)
+
+## YÊU CẦU HỆ THỐNG
+
+### YÊU CẦU PHẦN CỨNG
+- **EC2 INSTANCE**: t3.medium trở lên
   - CPU: 2+ vCPUs
   - RAM: 4GB+
   - Storage: 30GB+
   - OS: Ubuntu 20.04 LTS
 
-### Software Requirements
-- Docker
-- Docker Compose
-- Kubernetes (Minikube)
+### YÊU CẦU PHẦN MỀM
+- Docker & Docker Compose
+- Kubernetes (k3s)
 - kubectl
 - Git
-- Java 11+
+- Go 1.19+
 - Node.js 16+
-- Maven
-- npm
+- Java 11+ (cho Jenkins)
 
-### Network Requirements
-- Open ports:
-  - 22 (SSH)
-  - 80 (HTTP)
-  - 443 (HTTPS)
-  - 8080 (Jenkins)
-  - 9000 (SonarQube)
-  - 30000-32767 (Kubernetes NodePort)
+### YÊU CẦU MẠNG
+- Mở các cổng: 22, 80, 443, 8080, 9000, 30000-32767
 
-## Infrastructure Setup
+## KHỞI ĐỘNG NHANH
 
-1. **Launch EC2 Instance**
-   ```bash
-   # SSH into EC2
-   ssh -i your-key.pem ubuntu@your-ec2-ip
-   
-   # Update system
-   sudo apt update && sudo apt upgrade -y
-   
-   # Install required packages
-   sudo apt install -y \
-       apt-transport-https \
-       ca-certificates \
-       curl \
-       software-properties-common \
-       git \
-       openjdk-11-jdk \
-       maven
-   ```
+### 1. THIẾT LẬP TỰ ĐỘNG (KHUYẾN NGHỊ)
+```bash
+# Clone repository
+git clone <repository-url>
+cd todo
 
-2. **Install Docker**
-   ```bash
-   # Install Docker
-   curl -fsSL https://get.docker.com -o get-docker.sh
-   sudo sh get-docker.sh
-   
-   # Add user to docker group
-   sudo usermod -aG docker $USER
-   
-   # Install Docker Compose
-   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-   sudo chmod +x /usr/local/bin/docker-compose
-   ```
+# Chạy script cài đặt tự động
+chmod +x install.sh
+./install.sh
+```
 
-3. **Install Minikube**
-   ```bash
-   # Install Minikube
-   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-   sudo install minikube-linux-amd64 /usr/local/bin/minikube
-   
-   # Start Minikube
-   minikube start --driver=docker
-   
-   # Install kubectl
-   curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-   sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-   ```
+### 2. THIẾT LẬP THỦ CÔNG
+```bash
+# Cài đặt dependencies
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y openjdk-17-jre git wget curl unzip
 
-## Jenkins Setup
+# Cài đặt Go
+wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
 
-1. **Install Jenkins**
-   ```bash
-   # Add Jenkins repository
-   curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io.key | sudo tee \
-     /usr/share/keyrings/jenkins-keyring.asc > /dev/null
-   echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
-     https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
-     /etc/apt/sources.list.d/jenkins.list > /dev/null
-   
-   # Install Jenkins
-   sudo apt update
-   sudo apt install -y jenkins
-   
-   # Start Jenkins
-   sudo systemctl start jenkins
-   sudo systemctl enable jenkins
-   ```
+# Cài đặt Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
 
-2. **Configure Jenkins**
-   - Access Jenkins UI: `http://your-ec2-ip:8080`
-   - Get initial admin password:
-     ```bash
-     sudo cat /var/lib/jenkins/secrets/initialAdminPassword
-     ```
-   - Install recommended plugins
-   - Create admin user
-   - Install additional plugins:
-     - Kubernetes
-     - Docker Pipeline
-     - SonarQube Scanner
-     - Git Integration
-     - Pipeline: GitHub
-     - Blue Ocean
-     - Snyk Security Scanner
-     - Trivy Scanner
+# Cài đặt k3s (Kubernetes)
+curl -sfL https://get.k3s.io | sh -
+sudo chmod 644 /etc/rancher/k3s/k3s.yaml
+sudo cp /etc/rancher/k3s/k3s.yaml kubeconfig-ec2
+sudo chown $USER:$USER kubeconfig-ec2
+```
 
-3. **Configure Jenkins Credentials**
-   - Add Docker Hub credentials
-   - Add GitHub credentials
-   - Add SonarQube token
-   - Add Snyk token
-   - Add Kubernetes credentials
+## THIẾT LẬP HẠ TẦNG
 
-## SonarQube Setup
+### CÀI ĐẶT JENKINS
+```bash
+# Cài đặt Jenkins
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+sudo apt update -y
+sudo apt install -y jenkins
+sudo systemctl enable --now jenkins
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
 
-1. **Deploy SonarQube**
-   ```bash
-   # Create docker-compose.yml for SonarQube
-   cat << EOF > docker-compose.yml
-   version: "3"
-   services:
-     sonarqube:
-       image: sonarqube:community
-       ports:
-         - "9000:9000"
-       environment:
-         - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonar
-         - SONAR_JDBC_USERNAME=sonar
-         - SONAR_JDBC_PASSWORD=sonar
-       volumes:
-         - sonarqube_data:/opt/sonarqube/data
-         - sonarqube_extensions:/opt/sonarqube/extensions
-         - sonarqube_logs:/opt/sonarqube/logs
-       depends_on:
-         - db
-     db:
-       image: postgres:12
-       environment:
-         - POSTGRES_USER=sonar
-         - POSTGRES_PASSWORD=sonar
-         - POSTGRES_DB=sonar
-       volumes:
-         - postgresql:/var/lib/postgresql
-         - postgresql_data:/var/lib/postgresql/data
-   volumes:
-     sonarqube_data:
-     sonarqube_extensions:
-     sonarqube_logs:
-     postgresql:
-     postgresql_data:
-   EOF
-   
-   # Start SonarQube
-   docker-compose up -d
-   ```
+# Lấy mật khẩu ban đầu
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
 
-2. **Configure SonarQube**
-   - Access SonarQube UI: `http://your-ec2-ip:9000`
-   - Default credentials: admin/admin
-   - Create new project
-   - Generate token for Jenkins
+### CÀI ĐẶT SONARQUBE
+```bash
+# Cài đặt SonarQube
+sudo wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.2.77730.zip
+sudo unzip sonarqube-9.9.2.77730.zip -d /opt/
+sudo mv /opt/sonarqube-9.9.2.77730 /opt/sonarqube
+sudo chown -R $USER:$USER /opt/sonarqube
+sudo chmod +x /opt/sonarqube/bin/linux-x86-64/sonar.sh
 
-## Security Tools Setup
+# Tạo systemd service
+sudo tee /etc/systemd/system/sonarqube.service > /dev/null <<EOF
+[Unit]
+Description=SonarQube service
+After=network.target
 
-1. **Install Trivy**
-   ```bash
-   # Install Trivy
-   curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-   ```
+[Service]
+Type=forking
+ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
+ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
+User=$USER
+Group=$USER
+Restart=always
 
-2. **Configure Snyk**
-   - Sign up for Snyk account
-   - Get API token
-   - Add token to Jenkins credentials
+[Install]
+WantedBy=multi-user.target
+EOF
 
-## Pipeline Configuration
+sudo systemctl daemon-reload
+sudo systemctl enable sonarqube
+sudo systemctl start sonarqube
+```
 
-1. **Create Jenkinsfile**
-   - Use the existing Jenkinsfile in the repository
-   - Ensure it includes:
-     - Build stages
-     - Test stages
-     - SonarQube analysis
-     - Security scanning
-     - Docker image building
-     - Kubernetes deployment
+## TRIỂN KHAI ỨNG DỤNG
 
-2. **Configure Pipeline in Jenkins**
-   - Create new Pipeline job
+### 1. TRIỂN KHAI CƠ SỞ DỮ LIỆU
+```bash
+# Tạo namespace
+kubectl create namespace todo-app
+
+# Triển khai hạ tầng cơ sở dữ liệu
+kubectl apply -f k8s/database/database-config.yaml -n todo-app
+kubectl apply -f k8s/database/database-secrets.yaml -n todo-app
+kubectl apply -f k8s/database/database-storage.yaml -n todo-app
+kubectl apply -f k8s/database/database-statefulsets.yaml -n todo-app
+
+# Chờ cơ sở dữ liệu sẵn sàng
+kubectl wait --for=condition=ready pod -l app=auth-mysql-db -n todo-app --timeout=300s
+kubectl wait --for=condition=ready pod -l app=profile-mysql-db -n todo-app --timeout=300s
+kubectl wait --for=condition=ready pod -l app=task-mysql-db -n todo-app --timeout=300s
+```
+
+### 2. TRIỂN KHAI DỊCH VỤ ỨNG DỤNG
+```bash
+# Triển khai Redis
+kubectl apply -f k8s/gateway/redis.yaml -n todo-app
+
+# Triển khai các dịch vụ ứng dụng
+kubectl apply -f k8s/deployment/auth-service-deployment.yaml -n todo-app
+kubectl apply -f k8s/deployment/user-service-deployment.yaml -n todo-app
+kubectl apply -f k8s/deployment/task-service-deployment.yaml -n todo-app
+kubectl apply -f k8s/frontend/frontend-deployment.yaml -n todo-app
+
+# Triển khai API Gateway (Nginx)
+kubectl apply -f k8s/gateway/nginx-gateway.yaml -n todo-app
+```
+
+### 3. KIỂM TRA TRIỂN KHAI
+```bash
+# Kiểm tra tất cả pods
+kubectl get pods -n todo-app
+
+# Kiểm tra services
+kubectl get svc -n todo-app
+
+# Kiểm tra external IP của gateway
+kubectl get svc nginx-gateway-service -n todo-app
+```
+
+## PIPELINE CI/CD
+
+### CẤU HÌNH JENKINS
+
+1. **TRUY CẬP JENKINS**: `http://your-ec2-ip:8080`
+2. **CÀI ĐẶT PLUGINS**:
+   - Kubernetes
+   - Docker Pipeline
+   - SonarQube Scanner
+   - Git Integration
+   - Pipeline: GitHub
+   - Blue Ocean
+   - Snyk Security Scanner
+   - Trivy Scanner
+
+3. **CẤU HÌNH CREDENTIALS**:
+   - Docker Hub credentials
+   - GitHub credentials
+   - SonarQube token
+   - Snyk token
+   - Kubernetes kubeconfig
+
+4. **TẠO PIPELINE**:
+   - New Pipeline job
    - Configure GitHub webhook
-   - Set build triggers
-   - Configure environment variables
+   - Sử dụng Jenkinsfile có sẵn
 
-## Deployment Process
+### CÁC GIAI ĐOẠN PIPELINE
 
-1. **Initial Setup**
-   ```bash
-   # Clone repository
-   git clone https://github.com/your-repo/todo-app.git
-   cd todo-app
-   
-   # Create namespace
-   kubectl create namespace todo-app
-   ```
+Pipeline CI/CD bao gồm:
 
-2. **Deploy Database**
-   ```bash
-   # Apply database configurations
-   kubectl apply -f k8s/database-config.yaml
-   kubectl apply -f k8s/database-storage.yaml
-   kubectl apply -f k8s/database-statefulsets.yaml
-   kubectl apply -f k8s/database-secrets.yaml
-   ```
+1. **BUILD STAGE**: Biên dịch tất cả services
+2. **TEST STAGE**: Chạy unit và integration tests
+3. **SECURITY SCAN**: Quét lỗ hổng với Trivy và Snyk
+4. **CODE QUALITY**: Phân tích chất lượng code với SonarQube
+5. **DOCKER BUILD**: Tạo container images
+6. **DEPLOY**: Triển khai lên Kubernetes
 
-3. **Deploy Gateway**
-   ```bash
-   # Deploy Tyk Gateway
-   ./gateway/deploy-gateway.sh
-   ```
+## GIÁM SÁT VÀ XỬ LÝ SỰ CỐ
 
-4. **Deploy Applications**
-   ```bash
-   # Trigger Jenkins pipeline
-   # This will:
-   # 1. Build and test applications
-   # 2. Run SonarQube analysis
-   # 3. Run security scans
-   # 4. Build Docker images
-   # 5. Deploy to Kubernetes
-   ```
+### KIỂM TRA TRẠNG THÁI ỨNG DỤNG
+```bash
+# Trạng thái pods
+kubectl get pods -n todo-app
 
-## Monitoring and Maintenance
+# Trạng thái services
+kubectl get svc -n todo-app
 
-1. **Monitor Applications**
-   ```bash
-   # Check pod status
-   kubectl get pods -n todo-app
-   
-   # Check services
-   kubectl get svc -n todo-app
-   
-   # Check logs
-   kubectl logs -n todo-app -l app=<service-name>
-   ```
+# Logs
+kubectl logs -n todo-app -l app=auth-service
+kubectl logs -n todo-app -l app=user-service
+kubectl logs -n todo-app -l app=task-service
+kubectl logs -n todo-app -l app=frontend
+```
 
-2. **Monitor Jenkins**
-   - Access Jenkins UI
-   - Check build history
-   - Monitor pipeline status
-   - Review test results
-   - Check SonarQube reports
+### XỬ LÝ SỰ CỐ CƠ SỞ DỮ LIỆU
+```bash
+# Kiểm tra database pods
+kubectl get pods -n todo-app -l app=auth-mysql-db
+kubectl get pods -n todo-app -l app=profile-mysql-db
+kubectl get pods -n todo-app -l app=task-mysql-db
 
-3. **Monitor SonarQube**
-   - Access SonarQube UI
-   - Review code quality metrics
-   - Check security vulnerabilities
-   - Monitor code coverage
+# Logs cơ sở dữ liệu
+kubectl logs -n todo-app auth-db-0
+kubectl logs -n todo-app profile-db-0
+kubectl logs -n todo-app task-db-0
 
-4. **Regular Maintenance**
-   - Update Jenkins plugins
-   - Update SonarQube
-   - Update security tools
-   - Clean up old Docker images
-   - Monitor disk space
-   - Review and rotate credentials
+# Kết nối vào cơ sở dữ liệu
+kubectl exec -it auth-db-0 -n todo-app -- mysql -u root -p
+```
 
-## Troubleshooting
+### CÁC VẤN ĐỀ THƯỜNG GẶP VÀ GIẢI PHÁP
 
-1. **Jenkins Issues**
-   ```bash
-   # Check Jenkins logs
-   sudo journalctl -u jenkins
-   
-   # Restart Jenkins
-   sudo systemctl restart jenkins
-   ```
+#### VẤN ĐỀ KẾT NỐI CƠ SỞ DỮ LIỆU
+```bash
+# Kiểm tra xem databases có sẵn sàng không
+kubectl describe pod auth-db-0 -n todo-app
 
-2. **Kubernetes Issues**
-   ```bash
-   # Check pod status
-   kubectl describe pod <pod-name> -n todo-app
-   
-   # Check service status
-   kubectl describe svc <service-name> -n todo-app
-   
-   # Check logs
-   kubectl logs <pod-name> -n todo-app
-   ```
+# Kiểm tra secrets
+kubectl get secret db-secrets -n todo-app -o yaml
 
-3. **SonarQube Issues**
-   ```bash
-   # Check SonarQube logs
-   docker-compose logs sonarqube
-   
-   # Restart SonarQube
-   docker-compose restart sonarqube
-   ```
+# Khởi động lại database pods
+kubectl delete pod auth-db-0 profile-db-0 task-db-0 -n todo-app
+```
 
-## Security Considerations
+#### VẤN ĐỀ GIAO TIẾP GIỮA CÁC DỊCH VỤ
+```bash
+# Kiểm tra service endpoints
+kubectl get endpoints -n todo-app
 
-1. **Regular Security Updates**
-   - Update system packages
-   - Update Docker images
-   - Update Kubernetes
-   - Update Jenkins plugins
-   - Update SonarQube
+# Test kết nối giữa các services
+kubectl run test-pod --image=busybox -it --rm --restart=Never -- nslookup auth-service
+```
 
-2. **Access Control**
-   - Use strong passwords
-   - Implement 2FA where possible
-   - Regular credential rotation
-   - Minimal required permissions
+## TÀI LIỆU API
 
-3. **Monitoring**
-   - Regular security scans
-   - Log monitoring
-   - Alert on suspicious activities
-   - Regular backup of configurations
+### DỊCH VỤ XÁC THỰC
+- **BASE URL**: `http://gateway-ip/auth/`
+- **ENDPOINTS**:
+  - `POST /v1/authenticate` - Đăng nhập người dùng
+  - `POST /v1/register` - Đăng ký người dùng
 
-## Backup and Recovery
+### DỊCH VỤ NGƯỜI DÙNG
+- **BASE URL**: `http://gateway-ip/user/`
+- **ENDPOINTS**:
+  - `GET /v1/profile` - Lấy thông tin profile
+  - `PUT /v1/profile` - Cập nhật profile
 
-1. **Backup Important Data**
-   ```bash
-   # Backup Jenkins configuration
-   sudo tar -czf jenkins-backup.tar.gz /var/lib/jenkins
-   
-   # Backup SonarQube data
-   docker-compose exec -T sonarqube tar -czf - /opt/sonarqube/data > sonarqube-backup.tar.gz
-   
-   # Backup Kubernetes configurations
-   kubectl get all -n todo-app -o yaml > k8s-backup.yaml
-   ```
+### DỊCH VỤ TASK
+- **BASE URL**: `http://gateway-ip/task/`
+- **ENDPOINTS**:
+  - `GET /v1/tasks` - Danh sách tasks
+  - `POST /v1/tasks` - Tạo task mới
+  - `PUT /v1/tasks/{id}` - Cập nhật task
+  - `DELETE /v1/tasks/{id}` - Xóa task
 
-2. **Recovery Process**
-   - Restore Jenkins from backup
-   - Restore SonarQube data
-   - Reapply Kubernetes configurations
-   - Verify all services are running
+### FRONTEND
+- **URL**: `http://gateway-ip/`
+- **TÍNH NĂNG**: Giao diện React với xác thực và quản lý task
+
+## HƯỚNG DẪN PHÁT TRIỂN
+
+### THIẾT LẬP PHÁT TRIỂN CỤC BỘ
+```bash
+# Clone repository
+git clone <repository-url>
+cd todo
+
+# Khởi động services cục bộ với Docker Compose
+docker-compose up -d
+
+# Chạy services cục bộ
+cd auth-service && go run main.go
+cd ../profile-service && go run main.go
+cd ../task-service && go run main.go
+cd ../todo-fe && npm install && npm run dev
+```
+
+### BUILD CÁC DỊCH VỤ
+```bash
+# Build Go services
+cd auth-service && go build -o app .
+cd ../profile-service && go build -o app .
+cd ../task-service && go build -o app .
+
+# Build frontend
+cd todo-fe && npm run build
+```
+
+### TESTING
+```bash
+# Chạy Go tests
+cd auth-service && go test ./...
+cd ../profile-service && go test ./...
+cd ../task-service && go test ./...
+
+# Chạy frontend tests
+cd todo-fe && npm test
+```
+
+## TÍNH NĂNG BẢO MẬT
+
+- **XÁC THỰC**: Xác thực dựa trên JWT
+- **MÃ HÓA MẬT KHẨU**: Mã hóa mật khẩu an toàn với salt
+- **CORS**: Cấu hình chính sách CORS
+- **QUÉT BẢO MẬT**: Quét lỗ hổng tự động
+- **CHẤT LƯỢNG CODE**: Phân tích chất lượng và bảo mật với SonarQube
+
+## HIỆU SUẤT VÀ MỞ RỘNG
+
+- **MỞ RỘNG NGANG**: Các dịch vụ có thể mở rộng độc lập
+- **CÂN BẰNG TẢI**: Nginx gateway cung cấp cân bằng tải
+- **CƠ SỞ DỮ LIỆU**: Cơ sở dữ liệu riêng biệt cho từng dịch vụ
+- **CACHE**: Redis cho quản lý session
+
+## SAO LƯU VÀ KHÔI PHỤC
+
+### SAO LƯU
+```bash
+# Sao lưu cấu hình Jenkins
+sudo tar -czf jenkins-backup.tar.gz /var/lib/jenkins
+
+# Sao lưu dữ liệu SonarQube
+sudo tar -czf sonarqube-backup.tar.gz /opt/sonarqube/data
+
+# Sao lưu cấu hình Kubernetes
+kubectl get all -n todo-app -o yaml > k8s-backup.yaml
+```
+
+### KHÔI PHỤC
+```bash
+# Khôi phục Jenkins
+sudo tar -xzf jenkins-backup.tar.gz -C /
+
+# Khôi phục SonarQube
+sudo tar -xzf sonarqube-backup.tar.gz -C /
+
+# Khôi phục Kubernetes
+kubectl apply -f k8s-backup.yaml
+```
+
+## ĐÓNG GÓP
+
+1. Fork repository
+2. Tạo feature branch
+3. Thực hiện thay đổi
+4. Thêm tests
+5. Submit pull request
+
+## GIẤY PHÉP
+
+Dự án này được cấp phép theo MIT License.
+
+## HỖ TRỢ
+
+Để được hỗ trợ và giải đáp thắc mắc:
+- Tạo issue trong repository
+- Kiểm tra phần xử lý sự cố
+- Xem lại logs để biết chi tiết lỗi
+
+---
+
+**LƯU Ý**: Ứng dụng này được thiết kế cho mục đích học tập và trình diễn. Để sử dụng trong môi trường production, cần thêm các biện pháp bảo mật, giám sát và chiến lược sao lưu bổ sung.
 

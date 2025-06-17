@@ -21,25 +21,27 @@ spec:
         ports:
         - containerPort: 3200
         env:
-        - name: DB_HOST
-          value: profile-db
-        - name: DB_PORT
-          value: "3306"
-        - name: DB_USER
+        # Các biến môi trường cá nhân để lấy thông tin từ secrets
+        # Các biến này sẽ được sử dụng để xây dựng chuỗi DB_DSN
+        - name: MYSQL_USER
           valueFrom:
             secretKeyRef:
               name: db-secrets
               key: profile-db-user
-        - name: DB_PASSWORD
+        - name: MYSQL_PASSWORD
           valueFrom:
             secretKeyRef:
               name: db-secrets
               key: profile-db-password
-        - name: DB_NAME
+        - name: MYSQL_DATABASE
           valueFrom:
             secretKeyRef:
               name: db-secrets
               key: profile-db-name
+        command: ["/bin/sh", "-c"]
+        args:
+          - export DB_DSN="${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(profile-db:3306)/${MYSQL_DATABASE}?charset=utf8mb4&parseTime=True&loc=Local";
+            exec /app
 ---
 apiVersion: v1
 kind: Service

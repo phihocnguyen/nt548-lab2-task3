@@ -21,25 +21,25 @@ spec:
         ports:
         - containerPort: 3100
         env:
-        - name: DB_HOST
-          value: auth-db
-        - name: DB_PORT
-          value: "3306"
-        - name: DB_USER
+        - name: MYSQL_USER
           valueFrom:
             secretKeyRef:
               name: db-secrets
               key: auth-db-user
-        - name: DB_PASSWORD
+        - name: MYSQL_PASSWORD
           valueFrom:
             secretKeyRef:
               name: db-secrets
               key: auth-db-password
-        - name: DB_NAME
+        - name: MYSQL_DATABASE
           valueFrom:
             secretKeyRef:
               name: db-secrets
               key: auth-db-name
+        command: ["/bin/sh", "-c"]
+        args:
+          - export DB_DSN="${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(auth-db:3306)/${MYSQL_DATABASE}?charset=utf8mb4&parseTime=True&loc=Local";
+            exec /app 
 ---
 apiVersion: v1
 kind: Service
