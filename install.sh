@@ -4,7 +4,7 @@
 sudo apt-get update -y && sudo apt-get upgrade -y
 
 # Cài đặt các gói cần thiết
-sudo apt-get install -y openjdk-17-jre git wget curl
+sudo apt-get install -y openjdk-17-jre git wget curl unzip
 
 # Cài đặt Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -29,50 +29,42 @@ curl -sfL https://get.k3s.io | sh -
 sudo chmod 644 /etc/rancher/k3s/k3s.yaml # Cho phép truy cập kubeconfig
 
 # Cài đặt SonarQube
-mkdir -p sonarqube && cd sonarqube
-# SỬA LẠI CÚ PHÁP YAML VÀ THỤT LỀ
-cat << EOF > docker-compose.yml
-version: "3.8"
-services:
-  sonarqube:
-    image: sonarqube:lts-community
-    ports:
-      - "9000:9000"
-    networks:
-      - sonarnet
-    environment:
-      - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonar
-      - SONAR_JDBC_USERNAME=sonar
-      - SONAR_JDBC_PASSWORD=sonar
-    volumes:
-      - sonarqube_data:/opt/sonarqube/data
-      - sonarqube_extensions:/opt/sonarqube/extensions
-      - sonarqube_logs:/opt/sonarqube/logs
-  db:
-    image: postgres:13
-    networks:
-      - sonarnet
-    environment:
-      - POSTGRES_USER=sonar
-      - POSTGRES_PASSWORD=sonar
-      - POSTGRES_DB=sonar
-    volumes:
-      - postgresql:/var/lib/postgresql
-      - postgresql_data:/var/lib/postgresql/data
-networks:
-  sonarnet:
-    driver: bridge
-volumes:
-  sonarqube_data:
-  sonarqube_extensions:
-  sonarqube_logs:
-  postgresql:
-  postgresql_data:
+echo "Installing SonarQube..."
+sudo wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.2.77730.zip
+sudo unzip sonarqube-9.9.2.77730.zip -d /opt/
+sudo mv /opt/sonarqube-9.9.2.77730 /opt/sonarqube
+sudo chown -R $USER:$USER /opt/sonarqube
+sudo chmod +x /opt/sonarqube/bin/linux-x86-64/sonar.sh
+
+# Tạo systemd service cho SonarQube
+sudo tee /etc/systemd/system/sonarqube.service > /dev/null <<EOF
+[Unit]
+Description=SonarQube service
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
+ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
+User=$USER
+Group=$USER
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
 EOF
 
-# THÊM SUDO VÀO LỆNH DOCKER-COMPOSE
-sudo docker-compose up -d
-cd .. # Quay trở lại thư mục trước đó
+# Khởi động SonarQube service
+sudo systemctl daemon-reload
+sudo systemctl enable sonarqube
+sudo systemctl start sonarqube
+
+# Đợi SonarQube khởi động
+echo "Waiting for SonarQube to start..."
+sleep 30
+
+# Xóa file zip đã tải
+sudo rm sonarqube-9.9.2.77730.zip
 
 echo ""
 echo "---- CÀI ĐẶT HOÀN TẤT ----"

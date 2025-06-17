@@ -2,16 +2,13 @@ pipeline {
     agent any
 
     environment {
-        // --- THAY THẾ CÁC GIÁ TRỊ NÀY ---
-        DOCKER_REGISTRY      = 'your-docker-hub-id' // <<-- THAY BẰNG DOCKER HUB ID CỦA BẠN
-        SONAR_HOST_URL       = 'http://<IP-CUA-EC2>:9000' // <<-- THAY BẰNG IP CỦA MÁY CHỦ EC2
+        DOCKER_REGISTRY      = 'phihocnguyen123'
+        SONAR_HOST_URL       = 'http://47.129.45.169:9000'
         KUBERNETES_NAMESPACE = 'todo-app'
-        
-        // --- CÁC CREDENTIALS NÀY CẦN ĐƯỢC CẤU HÌNH TRONG JENKINS ---
-        SONAR_TOKEN          = credentials('sonarqube-token')
+        SONAR_TOKEN          = credentials('sonar-token')
         SNYK_TOKEN           = credentials('snyk-token')
-        DOCKER_CREDENTIALS   = credentials('docker-credentials') // Loại Username/Password
-        KUBECONFIG_CRED      = credentials('kubeconfig-ec2')     // Loại Secret File
+        DOCKER_CREDENTIALS   = credentials('docker-credentials')
+        KUBECONFIG_CRED      = credentials('kubeconfig-ec2')
     }
 
     stages {
@@ -58,9 +55,11 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            def scannerHome = tool 'SonarScanner';
-            withSonarQubeEnv() {
-            sh "${scannerHome}/bin/sonar-scanner"
+            steps {
+                def scannerHome = tool 'SonarScanner';
+                withSonarQubeEnv() {
+                    sh "${scannerHome}/bin/sonar-scanner"
+                }
             }
         }
         
@@ -71,7 +70,7 @@ pipeline {
                         dir('auth-service') {
                             script {
                                 def imageName = "${DOCKER_REGISTRY}/auth-service:${env.BUILD_NUMBER}"
-                                sh "docker build -t ${imageName} ."
+                                sh "docker build -f Dockerfile -t ${imageName} ."
                                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                                     sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
                                     sh "docker push ${imageName}"
@@ -85,7 +84,7 @@ pipeline {
                         dir('profile-service') {
                             script {
                                 def imageName = "${DOCKER_REGISTRY}/profile-service:${env.BUILD_NUMBER}"
-                                sh "docker build -t ${imageName} ."
+                                sh "docker build -f Dockerfile -t ${imageName} ."
                                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                                     sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
                                     sh "docker push ${imageName}"
@@ -99,7 +98,7 @@ pipeline {
                         dir('task-service') {
                             script {
                                 def imageName = "${DOCKER_REGISTRY}/task-service:${env.BUILD_NUMBER}"
-                                sh "docker build -t ${imageName} ."
+                                sh "docker build -f Dockerfile -t ${imageName} ."
                                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                                     sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
                                     sh "docker push ${imageName}"
@@ -113,7 +112,7 @@ pipeline {
                         dir('todo-fe') {
                             script {
                                 def imageName = "${DOCKER_REGISTRY}/todo-fe:${env.BUILD_NUMBER}"
-                                sh "docker build -t ${imageName} ."
+                                sh "docker build -f Dockerfile -t ${imageName} ."
                                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                                     sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
                                     sh "docker push ${imageName}"
@@ -154,22 +153,49 @@ pipeline {
         
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([kubeconfigContent(credentialsId: 'kubeconfig-ec2')]) {
-                    script {
+                script {
+                    withCredentials([kubeconfigContent(credentialsId: 'kubeconfig-ec2')]) {
                         env.KUBECONFIG = "${KUBECONFIG_CRED}"
                         
-                        sh 'kubectl apply -f k8s/1-infra/'
-                        sh 'kubectl apply -f k8s/2-db/'
-                        sh 'kubectl rollout status statefulset/mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=5m'
-
-                        sh 'chmod +x jenkins/deploy.sh'
+                        echo 'Creating namespace if not exists...'
+                        sh 'kubectl create namespace ${KUBERNETES_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -'
                         
-                        sh "./jenkins/deploy.sh auth-service-deployment auth-service ${DOCKER_REGISTRY}/auth-service:${env.BUILD_NUMBER} ${KUBERNETES_NAMESPACE}"
-                        sh "./jenkins/deploy.sh profile-service-deployment profile-service ${DOCKER_REGISTRY}/profile-service:${env.BUILD_NUMBER} ${KUBERNETES_NAMESPACE}"
-                        sh "./jenkins/deploy.sh task-service-deployment task-service ${DOCKER_REGISTRY}/task-service:${env.BUILD_NUMBER} ${KUBERNETES_NAMESPACE}"
-                        sh "./jenkins/deploy.sh frontend-deployment frontend ${DOCKER_REGISTRY}/todo-fe:${env.BUILD_NUMBER} ${KUBERNETES_NAMESPACE}"
+                        echo 'Deploying database infrastructure...'
+                        sh 'kubectl apply -f k8s/database-config.yaml -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl apply -f k8s/database-secrets.yaml -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl apply -f k8s/database-storage.yaml -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl apply -f k8s/database-statefulsets.yaml -n ${KUBERNETES_NAMESPACE}'
                         
-                        sh 'kubectl apply -f k8s/4-gateway/'
+                        echo 'Waiting for database to be ready...'
+                        sh 'kubectl wait --for=condition=ready pod -l app=mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s'
+                        
+                        echo 'Deploying Redis...'
+                        sh 'kubectl apply -f gateway/redis.yaml -n ${KUBERNETES_NAMESPACE}'
+                        
+                        echo 'Deploying services...'
+                        sh 'kubectl apply -f gateway/auth-service.yaml -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl apply -f gateway/user-service.yaml -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl apply -f gateway/task-service.yaml -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl apply -f gateway/frontend-deployment.yaml -n ${KUBERNETES_NAMESPACE}'
+                        
+                        echo 'Updating deployment images...'
+                        sh 'kubectl set image deployment/auth-service-deployment auth-service=${DOCKER_REGISTRY}/auth-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl set image deployment/user-service-deployment user-service=${DOCKER_REGISTRY}/profile-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl set image deployment/task-service-deployment task-service=${DOCKER_REGISTRY}/task-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}'
+                        sh 'kubectl set image deployment/frontend-deployment frontend=${DOCKER_REGISTRY}/todo-fe:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}'
+                        
+                        echo 'Deploying API Gateway (Tyk)...'
+                        sh 'kubectl apply -f gateway/tyk-deployment.yaml -n ${KUBERNETES_NAMESPACE}'
+                        
+                        echo 'Waiting for all deployments to be ready...'
+                        sh 'kubectl rollout status deployment/auth-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s'
+                        sh 'kubectl rollout status deployment/user-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s'
+                        sh 'kubectl rollout status deployment/task-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s'
+                        sh 'kubectl rollout status deployment/frontend-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s'
+                        sh 'kubectl rollout status deployment/tyk-gateway -n ${KUBERNETES_NAMESPACE} --timeout=300s'
+                        
+                        echo 'Deployment completed successfully!'
+                        sh 'kubectl get pods -n ${KUBERNETES_NAMESPACE}'
                     }
                 }
             }
