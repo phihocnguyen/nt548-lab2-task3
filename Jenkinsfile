@@ -146,10 +146,10 @@ pipeline {
                             fi
                             
                             # Run Trivy scans
-                            trivy image ${DOCKER_REGISTRY}/auth-service:${BUILD_NUMBER} --format html -o trivy-auth-report.html
-                            trivy image ${DOCKER_REGISTRY}/profile-service:${BUILD_NUMBER} --format html -o trivy-profile-report.html
-                            trivy image ${DOCKER_REGISTRY}/task-service:${BUILD_NUMBER} --format html -o trivy-task-report.html
-                            trivy image ${DOCKER_REGISTRY}/todo-fe:${BUILD_NUMBER} --format html -o trivy-frontend-report.html
+                            trivy image ${DOCKER_REGISTRY}/auth-service:${BUILD_NUMBER} --format template --template @html -o trivy-auth-report.html
+                            trivy image ${DOCKER_REGISTRY}/profile-service:${BUILD_NUMBER} --format template --template @html -o trivy-profile-report.html
+                            trivy image ${DOCKER_REGISTRY}/task-service:${BUILD_NUMBER} --format template --template @html -o trivy-task-report.html
+                            trivy image ${DOCKER_REGISTRY}/todo-fe:${BUILD_NUMBER} --format template --template @html -o trivy-frontend-report.html
                         '''
                         archiveArtifacts artifacts: 'trivy-*-report.html'
                     }
@@ -157,7 +157,10 @@ pipeline {
                 stage('Snyk Scan') {
                     steps {
                         sh '''
+                            # Install snyk and snyk-to-html locally to avoid permission issues
                             npm install snyk snyk-to-html
+                            
+                            # Use local installation
                             ./node_modules/.bin/snyk auth ${SNYK_TOKEN}
                             ./node_modules/.bin/snyk test --all-projects --json > snyk-results.json || true
                             ./node_modules/.bin/snyk-to-html -i snyk-results.json -o snyk-report.html
