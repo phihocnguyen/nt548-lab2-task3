@@ -48,7 +48,6 @@ spec:
         securityContext:
           runAsUser: 999
           runAsGroup: 999
-          fsGroup: 999
         readinessProbe:
           tcpSocket:
             port: 3306
@@ -134,7 +133,6 @@ spec:
         securityContext:
           runAsUser: 999
           runAsGroup: 999
-          fsGroup: 999
         readinessProbe:
           tcpSocket:
             port: 3306
@@ -220,7 +218,6 @@ spec:
         securityContext:
           runAsUser: 999
           runAsGroup: 999
-          fsGroup: 999
         readinessProbe:
           tcpSocket:
             port: 3306
@@ -242,51 +239,3 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-      volumes:
-      - name: task-db-init
-        configMap:
-          name: task-db-config
-  volumeClaimTemplates:
-  - metadata:
-      name: task-db-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: auth-db
-  namespace: todo-app
-spec:
-  ports:
-  - port: 3306
-    targetPort: 3306
-  selector:
-    app: auth-mysql-db
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: profile-db
-  namespace: todo-app
-spec:
-  ports:
-  - port: 3306
-    targetPort: 3306
-  selector:
-    app: profile-mysql-db
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: task-db
-  namespace: todo-app
-spec:
-  ports:
-  - port: 3306
-    targetPort: 3306
-  selector:
-    app: task-mysql-db
