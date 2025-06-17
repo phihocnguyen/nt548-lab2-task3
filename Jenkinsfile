@@ -146,39 +146,28 @@ pipeline {
                             fi
                             
                             # Run Trivy scans
-                            trivy image ${DOCKER_REGISTRY}/auth-service:${BUILD_NUMBER} --format template --template @html -o trivy-auth-report.html
-                            trivy image ${DOCKER_REGISTRY}/profile-service:${BUILD_NUMBER} --format template --template @html -o trivy-profile-report.html
-                            trivy image ${DOCKER_REGISTRY}/task-service:${BUILD_NUMBER} --format template --template @html -o trivy-task-report.html
-                            trivy image ${DOCKER_REGISTRY}/todo-fe:${BUILD_NUMBER} --format template --template @html -o trivy-frontend-report.html
-                            archiveArtifacts artifacts: 'trivy-*-report.html'
+                            trivy image ${DOCKER_REGISTRY}/auth-service:${BUILD_NUMBER} --format html -o trivy-auth-report.html
+                            trivy image ${DOCKER_REGISTRY}/profile-service:${BUILD_NUMBER} --format html -o trivy-profile-report.html
+                            trivy image ${DOCKER_REGISTRY}/task-service:${BUILD_NUMBER} --format html -o trivy-task-report.html
+                            trivy image ${DOCKER_REGISTRY}/todo-fe:${BUILD_NUMBER} --format html -o trivy-frontend-report.html
                         '''
+                        archiveArtifacts artifacts: 'trivy-*-report.html'
                     }
                 }
                 stage('Snyk Scan') {
                     steps {
                         sh '''
-                            # Cài đặt Snyk CLI và snyk-to-html (chỉ chạy nếu chưa cài đặt)
-                            # export PATH="$HOME/.npm-global/bin:$PATH" # Đảm bảo PATH được thiết lập trước khi dùng npm/snyk
-
-                            npm install -g snyk snyk-to-html
-
-                            # Thêm thư mục npm global bin vào PATH cho script này
-                            export PATH="$HOME/.npm-global/bin:$PATH"
-
-                            # Xác thực Snyk CLI
-                            snyk auth ${SNYK_TOKEN}
+                            npm install snyk snyk-to-html
+                            ./node_modules/.bin/snyk auth ${SNYK_TOKEN}
+                            ./node_modules/.bin/snyk test --all-projects --json > snyk-results.json || true
+                            ./node_modules/.bin/snyk-to-html -i snyk-results.json -o snyk-report.html
                             
-                            # Thực hiện quét Snyk
-                            snyk test --all-projects --json > snyk-results.json || true
-                            
-                            # Chuyển đổi báo cáo JSON sang HTML
-                            snyk-to-html -i snyk-results.json -o snyk-report.html
-
+                            # Debug info
                             ls -l snyk-report.html
                             file snyk-report.html
                             cat snyk-report.html | head -n 10
                         '''
-                        archiveArtifacts artifacts: 'snyk-report.html' 
+                        archiveArtifacts artifacts: 'snyk-report.html'
                     }
                 }
             }
