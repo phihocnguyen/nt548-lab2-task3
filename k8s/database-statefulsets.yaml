@@ -27,7 +27,20 @@ spec:
               name: db-secrets
               key: mysql-root-password
         - name: MYSQL_DATABASE
-          value: auth_db
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: auth-db-name
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: auth-db-user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: auth-db-password
         volumeMounts:
         - name: auth-db-data
           mountPath: /var/lib/mysql
@@ -44,14 +57,14 @@ spec:
       - name: auth-db-init
         configMap:
           name: auth-db-config
-      volumeClaimTemplates:
-      - metadata:
-          name: auth-db-data
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          resources:
-            requests:
-              storage: 1Gi
+  volumeClaimTemplates:
+  - metadata:
+      name: auth-db-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 ---
 # Profile Database StatefulSet
 apiVersion: apps/v1
@@ -82,7 +95,20 @@ spec:
               name: db-secrets
               key: mysql-root-password
         - name: MYSQL_DATABASE
-          value: profile_db
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: profile-db-name
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: profile-db-user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: profile-db-password
         volumeMounts:
         - name: profile-db-data
           mountPath: /var/lib/mysql
@@ -99,14 +125,14 @@ spec:
       - name: profile-db-init
         configMap:
           name: profile-db-config
-      volumeClaimTemplates:
-      - metadata:
-          name: profile-db-data
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          resources:
-            requests:
-              storage: 1Gi
+  volumeClaimTemplates:
+  - metadata:
+      name: profile-db-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 ---
 # Task Database StatefulSet
 apiVersion: apps/v1
@@ -137,7 +163,20 @@ spec:
               name: db-secrets
               key: mysql-root-password
         - name: MYSQL_DATABASE
-          value: task_db
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: task-db-name
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: task-db-user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: task-db-password
         volumeMounts:
         - name: task-db-data
           mountPath: /var/lib/mysql
@@ -154,16 +193,15 @@ spec:
       - name: task-db-init
         configMap:
           name: task-db-config
-      volumeClaimTemplates:
-      - metadata:
-          name: task-db-data
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          resources:
-            requests:
-              storage: 1Gi
+  volumeClaimTemplates:
+  - metadata:
+      name: task-db-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
 ---
-# Database Services
 apiVersion: v1
 kind: Service
 metadata:
@@ -198,4 +236,4 @@ spec:
   - port: 3306
     targetPort: 3306
   selector:
-    app: task-db 
+    app: task-db
