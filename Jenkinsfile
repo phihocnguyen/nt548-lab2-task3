@@ -139,7 +139,7 @@ pipeline {
                             # Install Trivy if not already installed
                             if ! command -v trivy &> /dev/null; then
                                 echo "Installing Trivy..."
-                                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.48.0
+                                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin v0.48.0
                             fi
                             
                             # Run Trivy scans
@@ -170,6 +170,10 @@ pipeline {
                             
                             # Chuyển đổi báo cáo JSON sang HTML
                             snyk-to-html -i snyk-results.json -o snyk-report.html
+
+                            ls -l snyk-report.html
+                            file snyk-report.html
+                            cat snyk-report.html | head -n 10
                         '''
                         archiveArtifacts artifacts: 'snyk-report.html' 
                     }
