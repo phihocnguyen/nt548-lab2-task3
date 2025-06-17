@@ -227,18 +227,15 @@ pipeline {
                             kubectl set image deployment/task-service-deployment task-service=${DOCKER_REGISTRY}/task-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
                             kubectl set image deployment/frontend-deployment frontend=${DOCKER_REGISTRY}/todo-fe:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
 
-                            echo 'Deploying API Gateway (Tyk) components...'
-                            kubectl apply -f k8s/gateway/tyk-deployment.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
-                            kubectl apply -f k8s/gateway/auth-service.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
-                            kubectl apply -f k8s/gateway/user-service.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
-                            kubectl apply -f k8s/gateway/task-service.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
+                            echo 'Deploying API Gateway (Nginx) components...'
+                            kubectl apply -f k8s/gateway/nginx-gateway.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
 
                             echo 'Waiting for all deployments to be ready...'
                             kubectl rollout status deployment/auth-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
                             kubectl rollout status deployment/user-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
                             kubectl rollout status deployment/task-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
                             kubectl rollout status deployment/frontend-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
-                            kubectl rollout status deployment/tyk-gateway -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
+                            kubectl rollout status deployment/nginx-gateway -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
 
                             echo 'Deployment completed successfully!'
                             kubectl get pods -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
