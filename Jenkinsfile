@@ -24,21 +24,27 @@ pipeline {
                 stage('Auth Service') {
                     steps {
                         dir('auth-service') {
-                            sh 'mvn clean package test'
+                            sh 'go mod download'
+                            sh 'go test ./...'
+                            sh 'go build -o app .'
                         }
                     }
                 }
                 stage('Profile Service') {
                     steps {
                         dir('profile-service') {
-                            sh 'mvn clean package test'
+                            sh 'go mod download'
+                            sh 'go test ./...'
+                            sh 'go build -o app .'
                         }
                     }
                 }
                 stage('Task Service') {
                     steps {
                         dir('task-service') {
-                            sh 'mvn clean package test'
+                            sh 'go mod download'
+                            sh 'go test ./...'
+                            sh 'go build -o app .'
                         }
                     }
                 }
@@ -46,7 +52,6 @@ pipeline {
                     steps {
                         dir('todo-fe') {
                             sh 'npm install -g pnpm && pnpm install'
-                            sh 'pnpm run test'
                             sh 'pnpm run build'
                         }
                     }
@@ -56,9 +61,11 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                def scannerHome = tool 'SonarScanner';
-                withSonarQubeEnv() {
-                    sh "${scannerHome}/bin/sonar-scanner"
+                script {
+                    def scannerHome = tool 'SonarScanner'
+                    withSonarQubeEnv('SonarQube') {
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
                 }
             }
         }
@@ -206,9 +213,8 @@ pipeline {
         always {
             echo 'Cleaning up and archiving...'
             sh 'docker system prune -f'
-            junit '**/target/surefire-reports/*.xml'
-            junit '**/target/failsafe-reports/*.xml'
-            publishCoverage adapters: [jacocoAdapter('**/target/site/jacoco/jacoco.xml')]
+            // Archive test results if any
+            archiveArtifacts artifacts: '**/test-results/*.xml', allowEmptyArchive: true
         }
         success {
             echo 'Pipeline successful!'

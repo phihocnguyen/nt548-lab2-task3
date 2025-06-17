@@ -28,6 +28,10 @@ sudo systemctl restart jenkins
 curl -sfL https://get.k3s.io | sh -
 sudo chmod 644 /etc/rancher/k3s/k3s.yaml # Cho phép truy cập kubeconfig
 
+# Copy kubeconfig để sử dụng trong Jenkins
+sudo cp /etc/rancher/k3s/k3s.yaml kubeconfig-ec2
+sudo chown $USER:$USER kubeconfig-ec2
+
 # Cài đặt SonarQube
 echo "Installing SonarQube..."
 sudo wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.2.77730.zip
