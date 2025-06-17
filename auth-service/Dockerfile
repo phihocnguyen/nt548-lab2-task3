@@ -33,8 +33,8 @@ WORKDIR /app
 COPY --from=builder /app/app .
 COPY --from=builder /app/data.sql .
 
-# Set proper permissions
-RUN chown -R appuser:appuser /app
+# Set proper permissions and make binary executable
+RUN chown -R appuser:appuser /app && chmod +x /app/app
 
 # Use non-root user
 USER appuser
