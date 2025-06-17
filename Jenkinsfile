@@ -184,12 +184,9 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'kubeconfig-ec2', variable: 'KUBECFG_CONTENT')]) {
+                    withCredentials([file(credentialsId: 'kubeconfig-ec2', variable: 'KUBECFG_PATH')]) {
                         sh '''
-                            # Write kubeconfig content to a temporary file
-                            echo "${KUBECFG_CONTENT}" > kubeconfig-temp
-                            chmod 600 kubeconfig-temp
-                            export KUBECONFIG=$(pwd)/kubeconfig-temp
+                            export KUBECONFIG=${KUBECFG_PATH}
                         '''
                         
                         echo 'Creating namespace if not exists...'
@@ -231,9 +228,6 @@ pipeline {
                         
                         echo 'Deployment completed successfully!'
                         sh 'kubectl get pods -n ${KUBERNETES_NAMESPACE}'
-                        
-                        // Clean up temporary kubeconfig file
-                        sh 'rm kubeconfig-temp'
                     }
                 }
             }
