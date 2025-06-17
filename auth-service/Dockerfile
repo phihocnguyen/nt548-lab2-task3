@@ -1,49 +1,20 @@
-# Build stage
-FROM golang:1.19-alpine AS builder
-
-# Install build dependencies
+# GIAI ĐOẠN BUILD
+FROM golang:1.20-alpine AS builder
 RUN apk add --no-cache git
-
-# Set working directory
 WORKDIR /app
-
-# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
-
-# Copy source code
 COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /app .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o app .
-
-# Final stage
+# GIAI ĐOẠN CUỐI CÙNG
 FROM alpine:3.18
-
-# Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata
-
-# Create non-root user
-RUN adduser -D -g '' appuser
-
-# Set working directory
-WORKDIR /app
-
-# Copy binary from builder
-COPY --from=builder /app/app .
-COPY --from=builder /app/data.sql .
-
-# Set proper permissions and make binary executable
-RUN chown -R appuser:appuser /app && chmod +x /app/app
-
-# Use non-root user
+RUN adduser -D -u 1000 -g '' appuser
+WORKDIR /
+COPY --from=builder /app /app
+RUN chown appuser:appuser /app && chmod +x /app
 USER appuser
-
-# Expose port
 EXPOSE 8080
-
-# Set environment variables
 ENV TZ=UTC
-
-# Run the application
-ENTRYPOINT ["./app"]
+ENTRYPOINT ["/app"]
