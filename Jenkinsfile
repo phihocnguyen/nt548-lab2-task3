@@ -185,25 +185,21 @@ pipeline {
             steps {
                 script {
                     withCredentials([file(credentialsId: 'kubeconfig-ec2', variable: 'KUBECFG_PATH')]) {
-                        sh '''
+                        sh """
                             export KUBECONFIG=${KUBECFG_PATH}
 
                             echo 'Creating namespace if not exists...'
                             kubectl create namespace ${KUBERNETES_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - --insecure-skip-tls-verify=true
 
                             echo 'Deleting existing database StatefulSets and Services (if any) to apply changes...'
-                            # Xóa các StatefulSet và Service theo tên (thực hiện cẩn thận!)
-                            # Sử dụng `|| true` để lệnh không bị lỗi nếu tài nguyên không tồn tại (lần chạy đầu tiên)
                             kubectl delete statefulset auth-db profile-db task-db -n ${KUBERNETES_NAMESPACE} --ignore-not-found=true --insecure-skip-tls-verify=true
                             kubectl delete service auth-db profile-db task-db -n ${KUBERNETES_NAMESPACE} --ignore-not-found=true --insecure-skip-tls-verify=true
                             
-                            # Cần xóa cả PVCs nếu bạn muốn PVC mới được tạo từ StatefulSet.
-                            # LƯU Ý: Với reclaimPolicy: Retain, PV sẽ không bị xóa tự động.
-                            # Bạn có thể cần xóa PVC bằng tay nếu nó không được giải phóng
+                            # Note: With reclaimPolicy: Retain, PVs won't be deleted automatically.
+                            # You might need to manually delete PVCs if they're not released
                             # kubectl delete pvc auth-db-data profile-db-data task-db-data -n ${KUBERNETES_NAMESPACE} --ignore-not-found=true --insecure-skip-tls-verify=true
-                            # Hoặc đặt `persistentVolumeReclaimPolicy: Delete` trong PV của bạn (nếu bạn chấp nhận mất dữ liệu)
-                            # Hiện tại, nếu bạn đang dùng hostPath, PV có thể vẫn tồn tại.
-                            # Với `volumeClaimTemplates`, StatefulSet sẽ tạo PVC tự động. Khi xóa StatefulSet, PVCs đó sẽ bị xóa.
+                            # Or set `persistentVolumeReclaimPolicy: Delete` in your PVs (if you accept data loss)
+                            # With `volumeClaimTemplates`, StatefulSet will create PVCs automatically. When deleting StatefulSet, those PVCs are typically deleted.
 
                             echo 'Deploying database infrastructure...'
                             kubectl apply -f k8s/database/database-config.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
@@ -212,7 +208,6 @@ pipeline {
                             kubectl apply -f k8s/database/database-statefulsets.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
 
                             echo 'Waiting for database to be ready...'
-                            # Wait for each database pod individually with their specific labels
                             kubectl wait --for=condition=ready pod -l app=auth-mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
                             kubectl wait --for=condition=ready pod -l app=profile-mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
                             kubectl wait --for=condition=ready pod -l app=task-mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s --insecure-skip-tls-verify=true
@@ -247,7 +242,7 @@ pipeline {
 
                             echo 'Deployment completed successfully!'
                             kubectl get pods -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
-                        '''
+                        """
                     }
                 }
             }
