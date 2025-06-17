@@ -154,11 +154,12 @@ pipeline {
                 stage('Snyk Scan') {
                     steps {
                         sh '''
-                            # Cài đặt Snyk CLI và snyk-to-html
+                            # Cài đặt Snyk CLI và snyk-to-html (chỉ chạy nếu chưa cài đặt)
+                            # export PATH="$HOME/.npm-global/bin:$PATH" # Đảm bảo PATH được thiết lập trước khi dùng npm/snyk
+
                             npm install -g snyk snyk-to-html
 
                             # Thêm thư mục npm global bin vào PATH cho script này
-                            # Đảm bảo đường dẫn này khớp với cấu hình `npm config get prefix` của người dùng jenkins
                             export PATH="$HOME/.npm-global/bin:$PATH"
 
                             # Xác thực Snyk CLI
@@ -166,9 +167,11 @@ pipeline {
                             
                             # Thực hiện quét Snyk
                             snyk test --all-projects --json > snyk-results.json || true
+                            
+                            # Chuyển đổi báo cáo JSON sang HTML
                             snyk-to-html -i snyk-results.json -o snyk-report.html
-                            archiveArtifacts artifacts: 'snyk-report.html'
                         '''
+                        archiveArtifacts artifacts: 'snyk-report.html' 
                     }
                 }
             }
