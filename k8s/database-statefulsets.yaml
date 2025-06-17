@@ -1,0 +1,201 @@
+# Auth Database StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: auth-db
+  namespace: todo-app
+spec:
+  serviceName: auth-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-db
+  template:
+    metadata:
+      labels:
+        app: auth-db
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: mysql-root-password
+        - name: MYSQL_DATABASE
+          value: auth_db
+        volumeMounts:
+        - name: auth-db-data
+          mountPath: /var/lib/mysql
+        - name: auth-db-init
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: auth-db-init
+        configMap:
+          name: auth-db-config
+      volumeClaimTemplates:
+      - metadata:
+          name: auth-db-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 1Gi
+---
+# Profile Database StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: profile-db
+  namespace: todo-app
+spec:
+  serviceName: profile-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: profile-db
+  template:
+    metadata:
+      labels:
+        app: profile-db
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: mysql-root-password
+        - name: MYSQL_DATABASE
+          value: profile_db
+        volumeMounts:
+        - name: profile-db-data
+          mountPath: /var/lib/mysql
+        - name: profile-db-init
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: profile-db-init
+        configMap:
+          name: profile-db-config
+      volumeClaimTemplates:
+      - metadata:
+          name: profile-db-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 1Gi
+---
+# Task Database StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: task-db
+  namespace: todo-app
+spec:
+  serviceName: task-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: task-db
+  template:
+    metadata:
+      labels:
+        app: task-db
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: mysql-root-password
+        - name: MYSQL_DATABASE
+          value: task_db
+        volumeMounts:
+        - name: task-db-data
+          mountPath: /var/lib/mysql
+        - name: task-db-init
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: task-db-init
+        configMap:
+          name: task-db-config
+      volumeClaimTemplates:
+      - metadata:
+          name: task-db-data
+        spec:
+          accessModes: [ "ReadWriteOnce" ]
+          resources:
+            requests:
+              storage: 1Gi
+---
+# Database Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-db
+  namespace: todo-app
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: auth-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: profile-db
+  namespace: todo-app
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: profile-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: task-db
+  namespace: todo-app
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: task-db 
