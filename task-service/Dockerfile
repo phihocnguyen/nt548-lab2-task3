@@ -13,7 +13,7 @@ RUN apk add --no-cache ca-certificates tzdata
 RUN adduser -D -u 1000 -g '' appuser
 WORKDIR /
 COPY --from=builder /app /app
-RUN chown appuser:appuser /app && chmod +x /app
+RUN chown -R appuser:appuser /app && chmod +x /app/app
 USER appuser
 EXPOSE 8080
 ENV TZ=UTC
