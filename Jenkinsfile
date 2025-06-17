@@ -194,12 +194,6 @@ pipeline {
                             echo 'Deleting existing database StatefulSets and Services (if any) to apply changes...'
                             kubectl delete statefulset auth-db profile-db task-db -n ${KUBERNETES_NAMESPACE} --ignore-not-found=true --insecure-skip-tls-verify=true
                             kubectl delete service auth-db profile-db task-db -n ${KUBERNETES_NAMESPACE} --ignore-not-found=true --insecure-skip-tls-verify=true
-                            
-                            # Note: With reclaimPolicy: Retain, PVs won't be deleted automatically.
-                            # You might need to manually delete PVCs if they're not released
-                            # kubectl delete pvc auth-db-data profile-db-data task-db-data -n ${KUBERNETES_NAMESPACE} --ignore-not-found=true --insecure-skip-tls-verify=true
-                            # Or set `persistentVolumeReclaimPolicy: Delete` in your PVs (if you accept data loss)
-                            # With `volumeClaimTemplates`, StatefulSet will create PVCs automatically. When deleting StatefulSet, those PVCs are typically deleted.
 
                             echo 'Deploying database infrastructure...'
                             kubectl apply -f k8s/database/database-config.yaml -n ${KUBERNETES_NAMESPACE} --insecure-skip-tls-verify=true
@@ -251,6 +245,7 @@ pipeline {
             echo 'Cleaning up and archiving...'
             sh 'docker system prune -f'
             archiveArtifacts artifacts: '**/test-results/*.xml', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'trivy-*.html', allowEmptyArchive: true
         }
         success {
             echo 'Pipeline successful!'
