@@ -6,6 +6,14 @@ sudo apt-get update -y && sudo apt-get upgrade -y
 # Cài đặt các gói cần thiết
 sudo apt-get install -y openjdk-17-jre git wget curl unzip
 
+# Cài đặt Go
+wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+sudo ln -s /usr/local/go/bin/go /usr/local/bin/go
+rm go1.21.0.linux-amd64.tar.gz
+
 # Cài đặt Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh

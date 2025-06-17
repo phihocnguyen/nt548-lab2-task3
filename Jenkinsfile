@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_REGISTRY      = 'phihocnguyen123'
-        SONAR_HOST_URL       = 'http://47.129.45.169:9000'
+        SONAR_HOST_URL       = 'http://54.151.221.118:9000'
         KUBERNETES_NAMESPACE = 'todo-app'
         SONAR_TOKEN          = credentials('sonar-token')
         SNYK_TOKEN           = credentials('snyk-token')
@@ -51,8 +51,8 @@ pipeline {
                 stage('Frontend') {
                     steps {
                         dir('todo-fe') {
-                            sh 'npm install -g pnpm && pnpm install'
-                            sh 'pnpm run build'
+                            sh 'npm install'
+                            sh 'npm run build'
                         }
                     }
                 }

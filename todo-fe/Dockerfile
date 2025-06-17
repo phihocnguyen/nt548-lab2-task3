@@ -7,20 +7,17 @@ RUN apk add --no-cache python3 make g++
 # Set working directory
 WORKDIR /app
 
-# Enable pnpm
-RUN corepack enable
-
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
+COPY package.json ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN npm install
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN pnpm build
+RUN npm run build
 
 # Production stage
 FROM nginx:1.24-alpine
