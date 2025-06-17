@@ -144,12 +144,17 @@ pipeline {
                                 curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b $HOME/bin v0.48.0
                                 export PATH=$HOME/bin:$PATH
                             fi
-                            
+
+                            # Create a directory for Trivy templates if it doesn't exist
+                            mkdir -p "$HOME/.trivy/templates"
+                            # Download the specific HTML template
+                            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o "$HOME/.trivy/templates/html.tpl"
+
                             # Run Trivy scans
-                            trivy image ${DOCKER_REGISTRY}/auth-service:${BUILD_NUMBER} --format template --template "@contrib/html.tpl" -o trivy-auth-report.html
-                            trivy image ${DOCKER_REGISTRY}/profile-service:${BUILD_NUMBER} --format template --template "@contrib/html.tpl" -o trivy-profile-report.html
-                            trivy image ${DOCKER_REGISTRY}/task-service:${BUILD_NUMBER} --format template --template "@contrib/html.tpl" -o trivy-task-report.html
-                            trivy image ${DOCKER_REGISTRY}/todo-fe:${BUILD_NUMBER} --format template --template "@contrib/html.tpl" -o trivy-frontend-report.html
+                            trivy image ${DOCKER_REGISTRY}/auth-service:${BUILD_NUMBER} --format template --template "$HOME/.trivy/templates/html.tpl" -o trivy-auth-report.html
+                            trivy image ${DOCKER_REGISTRY}/profile-service:${BUILD_NUMBER} --format template --template "$HOME/.trivy/templates/html.tpl" -o trivy-profile-report.html
+                            trivy image ${DOCKER_REGISTRY}/task-service:${BUILD_NUMBER} --format template --template "$HOME/.trivy/templates/html.tpl" -o trivy-task-report.html
+                            trivy image ${DOCKER_REGISTRY}/todo-fe:${BUILD_NUMBER} --format template --template "$HOME/.trivy/templates/html.tpl" -o trivy-frontend-report.html
                         '''
                         archiveArtifacts artifacts: 'trivy-*-report.html'
                     }
