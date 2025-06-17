@@ -186,48 +186,49 @@ pipeline {
                 script {
                     withCredentials([file(credentialsId: 'kubeconfig-ec2', variable: 'KUBECFG_PATH')]) {
                         sh '''
+                            # Export KUBECONFIG for the entire shell session
                             export KUBECONFIG=${KUBECFG_PATH}
+
+                            echo 'Creating namespace if not exists...'
+                            kubectl create namespace ${KUBERNETES_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+                            echo 'Deploying database infrastructure...'
+                            kubectl apply -f k8s/database-config.yaml -n ${KUBERNETES_NAMESPACE}
+                            kubectl apply -f k8s/database-secrets.yaml -n ${KUBERNETES_NAMESPACE}
+                            kubectl apply -f k8s/database-storage.yaml -n ${KUBERNETES_NAMESPACE}
+                            kubectl apply -f k8s/database-statefulsets.yaml -n ${KUBERNETES_NAMESPACE}
+
+                            echo 'Waiting for database to be ready...'
+                            kubectl wait --for=condition=ready pod -l app=mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s
+
+                            echo 'Deploying Redis...'
+                            kubectl apply -f gateway/redis.yaml -n ${KUBERNETES_NAMESPACE}
+
+                            echo 'Deploying services...'
+                            kubectl apply -f gateway/auth-service.yaml -n ${KUBERNETES_NAMESPACE}
+                            kubectl apply -f gateway/user-service.yaml -n ${KUBERNETES_NAMESPACE}
+                            kubectl apply -f gateway/task-service.yaml -n ${KUBERNETES_NAMESPACE}
+                            kubectl apply -f gateway/frontend-deployment.yaml -n ${KUBERNETES_NAMESPACE}
+
+                            echo 'Updating deployment images...'
+                            kubectl set image deployment/auth-service-deployment auth-service=${DOCKER_REGISTRY}/auth-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}
+                            kubectl set image deployment/user-service-deployment user-service=${DOCKER_REGISTRY}/profile-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}
+                            kubectl set image deployment/task-service-deployment task-service=${DOCKER_REGISTRY}/task-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}
+                            kubectl set image deployment/frontend-deployment frontend=${DOCKER_REGISTRY}/todo-fe:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}
+
+                            echo 'Deploying API Gateway (Tyk)...'
+                            kubectl apply -f gateway/tyk-deployment.yaml -n ${KUBERNETES_NAMESPACE}
+
+                            echo 'Waiting for all deployments to be ready...'
+                            kubectl rollout status deployment/auth-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s
+                            kubectl rollout status deployment/user-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s
+                            kubectl rollout status deployment/task-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s
+                            kubectl rollout status deployment/frontend-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s
+                            kubectl rollout status deployment/tyk-gateway -n ${KUBERNETES_NAMESPACE} --timeout=300s
+
+                            echo 'Deployment completed successfully!'
+                            kubectl get pods -n ${KUBERNETES_NAMESPACE}
                         '''
-                        
-                        echo 'Creating namespace if not exists...'
-                        sh 'kubectl create namespace ${KUBERNETES_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -'
-                        
-                        echo 'Deploying database infrastructure...'
-                        sh 'kubectl apply -f k8s/database-config.yaml -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl apply -f k8s/database-secrets.yaml -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl apply -f k8s/database-storage.yaml -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl apply -f k8s/database-statefulsets.yaml -n ${KUBERNETES_NAMESPACE}'
-                        
-                        echo 'Waiting for database to be ready...'
-                        sh 'kubectl wait --for=condition=ready pod -l app=mysql-db -n ${KUBERNETES_NAMESPACE} --timeout=300s'
-                        
-                        echo 'Deploying Redis...'
-                        sh 'kubectl apply -f gateway/redis.yaml -n ${KUBERNETES_NAMESPACE}'
-                        
-                        echo 'Deploying services...'
-                        sh 'kubectl apply -f gateway/auth-service.yaml -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl apply -f gateway/user-service.yaml -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl apply -f gateway/task-service.yaml -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl apply -f gateway/frontend-deployment.yaml -n ${KUBERNETES_NAMESPACE}'
-                        
-                        echo 'Updating deployment images...'
-                        sh 'kubectl set image deployment/auth-service-deployment auth-service=${DOCKER_REGISTRY}/auth-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl set image deployment/user-service-deployment user-service=${DOCKER_REGISTRY}/profile-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl set image deployment/task-service-deployment task-service=${DOCKER_REGISTRY}/task-service:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}'
-                        sh 'kubectl set image deployment/frontend-deployment frontend=${DOCKER_REGISTRY}/todo-fe:${env.BUILD_NUMBER} -n ${KUBERNETES_NAMESPACE}'
-                        
-                        echo 'Deploying API Gateway (Tyk)...'
-                        sh 'kubectl apply -f gateway/tyk-deployment.yaml -n ${KUBERNETES_NAMESPACE}'
-                        
-                        echo 'Waiting for all deployments to be ready...'
-                        sh 'kubectl rollout status deployment/auth-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s'
-                        sh 'kubectl rollout status deployment/user-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s'
-                        sh 'kubectl rollout status deployment/task-service-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s'
-                        sh 'kubectl rollout status deployment/frontend-deployment -n ${KUBERNETES_NAMESPACE} --timeout=300s'
-                        sh 'kubectl rollout status deployment/tyk-gateway -n ${KUBERNETES_NAMESPACE} --timeout=300s'
-                        
-                        echo 'Deployment completed successfully!'
-                        sh 'kubectl get pods -n ${KUBERNETES_NAMESPACE}'
                     }
                 }
             }
@@ -238,7 +239,6 @@ pipeline {
         always {
             echo 'Cleaning up and archiving...'
             sh 'docker system prune -f'
-            // Archive test results if any
             archiveArtifacts artifacts: '**/test-results/*.xml', allowEmptyArchive: true
         }
         success {
