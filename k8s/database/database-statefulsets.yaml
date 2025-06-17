@@ -73,6 +73,9 @@ spec:
       - name: auth-db-init
         configMap:
           name: auth-db-config
+      - name: auth-db-data # <-- Đã có trong bản gốc
+        persistentVolumeClaim:
+          claimName: auth-db-data # <-- Đã có trong bản gốc
   volumeClaimTemplates:
   - metadata:
       name: auth-db-data
@@ -158,6 +161,9 @@ spec:
       - name: profile-db-init
         configMap:
           name: profile-db-config
+      - name: profile-db-data # <-- Đã có trong bản gốc
+        persistentVolumeClaim:
+          claimName: profile-db-data # <-- Đã có trong bản gốc
   volumeClaimTemplates:
   - metadata:
       name: profile-db-data
@@ -239,3 +245,54 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+      volumes:
+      - name: task-db-init
+        configMap:
+          name: task-db-config
+      - name: task-db-data
+        persistentVolumeClaim:
+          claimName: task-db-data
+  volumeClaimTemplates:
+  - metadata:
+      name: task-db-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-db
+  namespace: todo-app
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: auth-mysql-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: profile-db
+  namespace: todo-app
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: profile-mysql-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: task-db
+  namespace: todo-app
+spec:
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: task-mysql-db
