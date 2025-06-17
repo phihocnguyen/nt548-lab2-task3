@@ -20,6 +20,26 @@ spec:
         image: phihocnguyen123/task-service:${env.BUILD_NUMBER}
         ports:
         - containerPort: 3300
+        env:
+        - name: DB_HOST
+          value: task-db
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: task-db-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: task-db-password
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: task-db-name
 ---
 apiVersion: v1
 kind: Service

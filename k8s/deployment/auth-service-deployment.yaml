@@ -20,6 +20,26 @@ spec:
         image: phihocnguyen123/auth-service:${env.BUILD_NUMBER}
         ports:
         - containerPort: 3100
+        env:
+        - name: DB_HOST
+          value: auth-db
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: auth-db-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: auth-db-password
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: auth-db-name
 ---
 apiVersion: v1
 kind: Service
